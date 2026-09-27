@@ -1,6 +1,20 @@
 # Administration — Center Ranking
 
-Dashboard akurasi administrasi **per center, per bulan**, dengan ranking dari yang terbaik sampai yang terburuk. Dashboard ini dibangun di dalam spreadsheet **Audit System New 1** lewat Apps Script (`apps-script/CenterRanking.gs`).
+Dashboard akurasi administrasi **per center, per bulan**, dengan ranking dari yang terbaik sampai yang terburuk. Dashboard ini dibangun dengan Apps Script di spreadsheet **Audit System New 1**, dan tersedia dalam dua bentuk:
+
+1. **Web app dashboard**: halaman ringan yang dibuka lewat link (`apps-script/Dashboard.html`). Datanya live dari Sheet.
+2. **Tab di spreadsheet**: tab `Center Ranking` beserta dua tab datanya (`apps-script/CenterRanking.gs`).
+
+## Web app dashboard
+
+Isinya:
+
+- Pilihan bulan. Bulan yang dipilih akan diingat di browser.
+- Kartu ringkasan: jumlah center yang akurat, center terbaik, center terburuk, dan rata-rata skor.
+- **Ranking terbaik → terburuk**: bar skor dengan garis target 90%, status ✓ Akurat / ✗ Tidak akurat, jumlah kategori PASS, dan ▲/▼ perubahan peringkat dibanding bulan lalu. Arahkan kursor ke baris untuk melihat rincian per kategori.
+- **Days Pass % per kategori**: matriks center × 5 kategori (✓ PASS / ✗ FAIL) dan Month Accuracy. Arahkan kursor ke sel untuk melihat hari lolos dan jumlah record.
+- **Tren bulanan**: grafik garis skor atau peringkat setiap center dari bulan ke bulan.
+- Tampilan menyesuaikan HP dan mode gelap.
 
 ## Yang dibuat script
 
@@ -37,14 +51,26 @@ Script mencari kolom berdasarkan **nama header di baris 1** (`Center`, `Audit Re
 ## Cara pasang (sekali saja)
 
 1. Buka spreadsheet **Audit System New 1** → menu **Extensions → Apps Script**.
-2. Klik **+** di samping *Files* → **Script**, beri nama `CenterRanking`.
-3. Hapus isi default-nya, lalu tempel seluruh isi `apps-script/CenterRanking.gs`. Klik **Save**.
+2. Klik **+** di samping *Files* → **Script**, beri nama `CenterRanking`. Hapus isi default-nya, tempel seluruh isi `apps-script/CenterRanking.gs`, lalu klik **Save**.
+3. Klik **+** → **HTML**, beri nama **`Dashboard`** (harus persis, tanpa `.html`). Hapus isi default-nya, tempel seluruh isi `apps-script/Dashboard.html`, lalu klik **Save**.
 4. Di dropdown fungsi (toolbar atas), pilih **`installCenterRanking`** lalu klik **Run**. Setujui izin yang diminta.
 5. Kembali ke spreadsheet. Tab **Center Ranking** sudah muncul, dan ada menu baru **📊 Center Ranking**.
 
 Setelah itu data di-refresh otomatis **setiap jam**. Kalau mau update sekarang juga: **📊 Center Ranking → Refresh now**.
 
-> Script ini **tidak** memakai nama `onOpen`, jadi tidak bentrok dengan script lain yang mungkin sudah ada di spreadsheet ini.
+### Membuat link web app
+
+1. Di editor Apps Script, klik **Deploy → New deployment**.
+2. Klik ikon ⚙️ di sebelah *Select type*, lalu pilih **Web app**.
+3. Isi pengaturannya:
+   - *Description*: `Center Ranking`
+   - *Execute as*: **Me**. Dengan begitu yang membuka link tidak perlu punya akses ke spreadsheet.
+   - *Who has access*: **Anyone within seven-retail.com** (hanya akun kantor), atau pilih sesuai kebutuhan.
+4. Klik **Deploy**, lalu salin **Web app URL**. Link itulah dashboard-nya.
+
+Kalau script diubah nanti: buka **Deploy → Manage deployments → ✏️ Edit**, pilih *Version: New version*, lalu klik **Deploy**. Link-nya tetap sama.
+
+> Script ini **tidak** memakai nama `onOpen`, jadi tidak bentrok dengan script lain yang mungkin sudah ada di spreadsheet ini. Tapi script ini memakai `doGet` untuk web app. Kalau project Apps Script-nya sudah punya fungsi `doGet`, kabari dulu.
 
 ## Mengubah standar
 
@@ -64,4 +90,4 @@ Buka **Center Ranking**, pilih **Aug 2026**, lalu bandingkan kolom per kategori 
 node --test
 ```
 
-Test ini menguji logika perhitungan (klasifikasi, hari lolos, Days Pass %, ranking, dan tie-break) tanpa perlu Google Sheets.
+Test ini menguji logika perhitungan (klasifikasi, hari lolos, Days Pass %, ranking, tie-break) dan data untuk web app tanpa perlu Google Sheets.

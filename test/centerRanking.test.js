@@ -110,3 +110,44 @@ test('column letters', () => {
   assert.equal(ctx.crColLetter_(13), 'M');
   assert.equal(ctx.crColLetter_(27), 'AA');
 });
+
+test('default period is the latest finished month', () => {
+  const now = new Date(2026, 8, 27); // 27 Sep 2026
+  assert.equal(ctx.crDefaultPeriod_(['202607', '202608', '202609'], now), '202608');
+  assert.equal(ctx.crDefaultPeriod_(['202609'], now), '202609');
+  assert.equal(ctx.crDefaultPeriod_([], now), '');
+});
+
+test('dashboard payload carries ranking, detail and month flags', () => {
+  const rowsByCat = {
+    RT: [...day('AAA', 202608, 1, 2, 2), ...day('BBB', 202608, 1, 2, 0), ...day('AAA', 202609, 1, 1, 1)],
+    PR: [...day('BBB', 202608, 1, 1, 1)],
+  };
+  const { detail } = ctx.crAggregate_(rowsByCat, 0.8, 0.9);
+  const p = JSON.parse(JSON.stringify(ctx.crDashboardPayload_(detail, '2026-09-27T01:00:00Z', new Date(2026, 8, 27))));
+  assert.deepEqual(p.periods, [
+    { key: '202608', label: 'Aug 2026', running: false },
+    { key: '202609', label: 'Sep 2026', running: true },
+  ]);
+  assert.equal(p.defaultPeriod, '202608');
+  assert.deepEqual(p.centers, ['AAA', 'BBB']);
+  assert.deepEqual(p.categories.map(c => c.key), ['RT', 'PR', 'SD', 'SM', 'AL']);
+  assert.deepEqual(p.ranking.filter(r => r.period === '202608').map(r => [r.rank, r.center, r.catsPass, r.catsActive]),
+    [[1, 'AAA', 1, 1], [2, 'BBB', 1, 2]]);
+  assert.equal(p.detail.length, 4);
+  assert.equal(p.refreshedAt, '2026-09-27T01:00:00Z');
+});
+
+test('reads the detail tab back into detail records', () => {
+  const values = [
+    [202608, 'Aug 2026', 'KLM', 'Register Trial', 27, 5, 5 / 27, 120, 80, 80 / 120, 'FAIL'],
+    [202608, 'Aug 2026', 'KLM', 'Payment Record', 27, 27, 1, 60, 60, 1, 'PASS'],
+    ['', '', '', '', '', '', '', '', '', '', ''],
+  ];
+  const ss = { getSheetByName: () => ({ getLastRow: () => values.length + 1, getRange: () => ({ getValues: () => values }) }) };
+  const d = JSON.parse(JSON.stringify(ctx.crReadDetailTab_(ss)));
+  assert.equal(d.length, 2);
+  assert.deepEqual(d[1], { period: '202608', center: 'KLM', cat: 'PR', activeDays: 27, passDays: 27, daysPassPct: 1,
+    records: 60, complete: 60, accuracy: 1, pass: true });
+  assert.equal(ctx.crReadDetailTab_({ getSheetByName: () => null }), null);
+});

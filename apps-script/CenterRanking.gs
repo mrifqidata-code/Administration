@@ -15,6 +15,8 @@
  *   ACCURATE       = every category with records that month is PASS
  *   Rank           = score (desc), then categories PASS (desc), then month accuracy (desc)
  *
+ * Web app: Dashboard.html is served by doGet() — deploy as a web app for a lightweight dashboard link.
+ *
  * Setup: run installCenterRanking() once. See README.md.
  */
 
@@ -60,6 +62,7 @@ function installCenterRanking() {
     .forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('crOnOpen').forSpreadsheet(ss).onOpen().create();
   ScriptApp.newTrigger('refreshCenterRanking').timeBased().everyHours(1).create();
+  PropertiesService.getScriptProperties().setProperty('CR_SPREADSHEET_ID', ss.getId());
   crAddMenu_();
   refreshCenterRanking();
 }
@@ -100,6 +103,76 @@ function refreshCenterRanking() {
   crWriteDetail_(ss, agg.detail);
   crWriteData_(ss, ranking);
   crWriteDashboard_(ss, ranking, periods, agg.skipped);
+  PropertiesService.getScriptProperties().setProperty('CR_REFRESHED_AT', new Date().toISOString());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Web app
+// ─────────────────────────────────────────────────────────────────────────────
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Dashboard')
+    .setTitle('Center Ranking — Sparks Swim')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/** Called from Dashboard.html. Returns the dashboard payload as a JSON string. */
+function crGetDashboardData() {
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('CR_SPREADSHEET_ID'));
+  let detail = crReadDetailTab_(ss);
+  if (!detail) {
+    const rowsByCat = {};
+    CR.CATEGORIES.forEach(cat => { rowsByCat[cat.key] = crReadCategory_(ss, cat); });
+    detail = crAggregate_(rowsByCat, CR.DAILY_MIN, CR.MONTH_PASS).detail;
+  }
+  const refreshedAt = PropertiesService.getScriptProperties().getProperty('CR_REFRESHED_AT') || '';
+  return JSON.stringify(crDashboardPayload_(detail, refreshedAt, new Date()));
+}
+
+/** Reads the "Center Category Detail" tab written by refreshCenterRanking(); null when it is missing. */
+function crReadDetailTab_(ss) {
+  const sh = ss.getSheetByName(CR.DETAIL);
+  if (!sh || sh.getLastRow() < 2) return null;
+  const keyByName = {};
+  CR.CATEGORIES.forEach(c => { keyByName[c.name] = c.key; });
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 11).getValues()
+    .filter(r => keyByName[r[3]] && crNormPeriod_(r[0]))
+    .map(r => ({
+      period: crNormPeriod_(r[0]), center: String(r[2]), cat: keyByName[r[3]],
+      activeDays: Number(r[4]), passDays: Number(r[5]), daysPassPct: Number(r[6]),
+      records: Number(r[7]), complete: Number(r[8]), accuracy: Number(r[9]), pass: r[10] === 'PASS',
+    }));
+}
+
+/** The latest month before `now`, or the latest month when every month is current/future. */
+function crDefaultPeriod_(periods, now) {
+  const current = String(now.getFullYear() * 100 + now.getMonth() + 1);
+  const finished = periods.filter(p => p < current);
+  return finished.length ? finished[finished.length - 1] : (periods[periods.length - 1] || '');
+}
+
+function crDashboardPayload_(detail, refreshedAt, now) {
+  const ranking = crRank_(detail);
+  const periods = [...new Set(ranking.map(r => r.period))].sort();
+  const current = String(now.getFullYear() * 100 + now.getMonth() + 1);
+  return {
+    dailyMin: CR.DAILY_MIN,
+    monthPass: CR.MONTH_PASS,
+    refreshedAt,
+    categories: CR.CATEGORIES.map(c => ({ key: c.key, name: c.name })),
+    periods: periods.map(p => ({ key: p, label: crPeriodLabel_(p), running: p === current })),
+    defaultPeriod: crDefaultPeriod_(periods, now),
+    centers: [...new Set(ranking.map(r => r.center))].sort(),
+    ranking: ranking.map(r => ({
+      period: r.period, center: r.center, rank: r.rank, score: r.score, accuracy: r.accuracy,
+      catsPass: r.catsPass, catsActive: r.catsActive, accurate: r.accurate,
+    })),
+    detail: detail.map(d => ({
+      period: d.period, center: d.center, cat: d.cat, activeDays: d.activeDays, passDays: d.passDays,
+      daysPassPct: d.daysPassPct, records: d.records, complete: d.complete, accuracy: d.accuracy, pass: d.pass,
+    })),
+  };
 }
 
 /** Reads [center, result, period, day] for every data row of one category sheet. */
@@ -321,12 +394,7 @@ function crWriteDashboard_(ss, ranking, periods, skipped) {
   // Keep the viewer's month if it still exists; otherwise the latest finished month.
   let selected = '';
   if (sh.getLastRow() >= 4) selected = String(sh.getRange('C4').getDisplayValue()).trim();
-  if (!labels.includes(selected)) {
-    const now = new Date();
-    const current = String(now.getFullYear() * 100 + now.getMonth() + 1);
-    const finished = periods.filter(p => p < current);
-    selected = labels.length ? crPeriodLabel_(finished.length ? finished[finished.length - 1] : periods[periods.length - 1]) : '';
-  }
+  if (!labels.includes(selected)) selected = periods.length ? crPeriodLabel_(crDefaultPeriod_(periods, new Date())) : '';
 
   sh.getCharts().forEach(c => sh.removeChart(c));
   sh.clear();

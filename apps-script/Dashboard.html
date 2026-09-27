@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Center Ranking</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f4f2;
+    --surface: #fcfcfb;
+    --surface-2: #f0efec;
+    --line: #e2e1dc;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --text-3: #7a7974;
+    --accent: #2a78d6;
+    --track: #e8eef7;
+    --good: #0ca30c;  --good-ink: #006300;  --good-bg: #e2f3e2;
+    --bad: #d03b3b;   --bad-ink: #a32323;   --bad-bg: #fbe4e4;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 8px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121211; --surface: #1a1a19; --surface-2: #232321; --line: #2f2f2c;
+      --text: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e86;
+      --accent: #3987e5; --track: #1f2a38;
+      --good-ink: #5fd35f; --good-bg: #173417;
+      --bad-ink: #f08a8a;  --bad-bg: #3d1d1d;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --surface-2: #232321; --line: #2f2f2c;
+    --text: #ffffff; --text-2: #c3c2b7; --text-3: #8f8e86;
+    --accent: #3987e5; --track: #1f2a38;
+    --good-ink: #5fd35f; --good-bg: #173417;
+    --bad-ink: #f08a8a;  --bad-bg: #3d1d1d;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  .sub { color: var(--text-2); margin-top: 2px; }
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .controls label { color: var(--text-2); font-size: 13px; }
+  select {
+    font: inherit; color: var(--text); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 30px 7px 10px; min-width: 150px;
+    appearance: none; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-2) 50%), linear-gradient(135deg, var(--text-2) 50%, transparent 50%);
+    background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat;
+  }
+  select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .fresh { color: var(--text-3); font-size: 12px; }
+
+  .banner { background: var(--surface-2); color: var(--text-2); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 13px; }
+  .banner[hidden] { display: none; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+  .kpi .k { color: var(--text-2); font-size: 12px; }
+  .kpi .v { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi .n { color: var(--text-3); font-size: 12px; margin-top: 2px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; min-width: 0; }
+  .card-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  h2 { font-size: 15px; margin: 0; }
+  .hint { color: var(--text-3); font-size: 12px; }
+
+  /* Ranking */
+  .rank-row { display: grid; grid-template-columns: 28px 64px minmax(80px, 1fr) 58px 250px; gap: 12px; align-items: center; padding: 8px 4px; border-top: 1px solid var(--line); cursor: default; }
+  .rank-row:first-of-type { border-top: 0; }
+  .rank-row:hover { background: var(--surface-2); border-radius: 8px; }
+  .rk { font-weight: 650; color: var(--text-2); text-align: center; font-variant-numeric: tabular-nums; }
+  .ct { font-weight: 650; }
+  .bar { position: relative; height: 12px; background: var(--track); border-radius: 4px; }
+  .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 4px; }
+  .bar > b { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text-2); opacity: .55; }
+  .sc { font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; }
+  .meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; justify-self: start; }
+  .chip.ok { background: var(--good-bg); color: var(--good-ink); }
+  .chip.no { background: var(--bad-bg); color: var(--bad-ink); }
+  .dl { font-size: 12px; color: var(--text-3); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dl .up { color: var(--good-ink); } .dl .down { color: var(--bad-ink); }
+  .legend-target { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-target::before { content: ""; width: 2px; height: 12px; background: var(--text-2); opacity: .55; }
+
+  /* Category matrix */
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.mx { border-collapse: separate; border-spacing: 2px; width: 100%; min-width: 640px; font-variant-numeric: tabular-nums; }
+  .mx th { font-size: 12px; color: var(--text-2); font-weight: 600; text-align: center; padding: 4px 6px; }
+  .mx th:first-child { text-align: left; }
+  .mx td { text-align: center; padding: 8px 6px; border-radius: 6px; font-weight: 600; }
+  .mx td:first-child { text-align: left; font-weight: 650; background: transparent; }
+  .mx td.pass { background: var(--good-bg); color: var(--good-ink); }
+  .mx td.fail { background: var(--bad-bg); color: var(--bad-ink); }
+  .mx td.none { color: var(--text-3); font-weight: 400; background: var(--surface-2); }
+  .mx td.acc { color: var(--text); background: var(--surface-2); }
+  .mx td .ic { font-size: 11px; margin-right: 3px; }
+
+  /* Trend */
+  .seg { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 2px; }
+  .seg button { font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--text-2); padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 8px; font-size: 12px; color: var(--text-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  #trend svg { display: block; width: 100%; overflow: visible; }
+  #trend .grid { stroke: var(--line); stroke-width: 1; }
+  #trend .axis { fill: var(--text-3); font-size: 11px; }
+  #trend .target { stroke: var(--text-2); stroke-width: 1; opacity: .6; }
+  #trend .tlabel { fill: var(--text-2); font-size: 11px; }
+  #trend .sel { fill: var(--surface-2); }
+  #trend .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; transition: opacity .12s; }
+  #trend .dot { stroke: var(--surface); stroke-width: 2; }
+  #trend .end { font-size: 11px; font-weight: 600; fill: var(--text-2); }
+  #trend .xh { stroke: var(--text-3); stroke-width: 1; }
+  #trend.dim .ln, #trend.dim .dot, #trend.dim .end { opacity: .15; }
+  #trend.dim .on { opacity: 1 !important; }
+
+  details.how { color: var(--text-2); font-size: 13px; }
+  details.how summary { cursor: pointer; color: var(--text); font-weight: 600; }
+  details.how ul { margin: 8px 0 0; padding-left: 18px; }
+  details.how li { margin: 4px 0; }
+
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; opacity: 0; transition: opacity .08s;
+    background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.14); padding: 8px 10px; font-size: 12px; max-width: 280px;
+  }
+  #tip.on { opacity: 1; }
+  #tip .t { font-weight: 650; margin-bottom: 4px; }
+  #tip .r { display: flex; justify-content: space-between; gap: 14px; color: var(--text-2); }
+  #tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  #tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+
+  .state { padding: 48px 16px; text-align: center; color: var(--text-2); }
+  .skel { height: 14px; border-radius: 4px; background: var(--surface-2); margin: 10px 0; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+
+  @media (max-width: 760px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .rank-row { grid-template-columns: 24px 44px minmax(60px, 1fr) 52px; grid-template-areas: "rk ct bar sc" ". meta meta meta"; column-gap: 10px; row-gap: 6px; }
+    .rank-row .rk { grid-area: rk; } .rank-row .ct { grid-area: ct; } .rank-row .bar { grid-area: bar; }
+    .rank-row .sc { grid-area: sc; } .rank-row .meta { grid-area: meta; }
+    .kpi .v { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Center Ranking</h1>
+      <div class="sub">Sparks Swim · akurasi administrasi per center</div>
+    </div>
+    <div class="controls">
+      <label for="period">Bulan</label>
+      <select id="period" disabled><option>Memuat…</option></select>
+      <span class="fresh" id="fresh"></span>
+    </div>
+  </header>
+
+  <div class="banner" id="running" hidden>Bulan ini masih berjalan, jadi angkanya masih bisa berubah sampai akhir bulan.</div>
+
+  <div id="app">
+    <div class="card"><div class="skel" style="width:40%"></div><div class="skel"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>
+  </div>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+  'use strict';
+  let D = null;          // payload
+  let period = '';
+  let trendMode = 'score';
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pct = (v, d) => (v == null || isNaN(v)) ? '—' : (v * 100).toFixed(d || 0) + '%';
+  const num = v => Number(v).toLocaleString('id-ID');
+  const color = center => 'var(--s' + ((D.centers.indexOf(center) % 8) + 1) + ')';
+
+  // ── data ──────────────────────────────────────────────────────────────────
+  function load() {
+    google.script.run
+      .withSuccessHandler(json => { D = JSON.parse(json); init(); })
+      .withFailureHandler(err => {
+        $('#app').innerHTML = '<div class="card state">Gagal memuat data.<br><span class="hint">' + esc(err && err.message || err) + '</span></div>';
+      })
+      .crGetDashboardData();
+  }
+
+  function init() {
+    if (!D.periods.length) {
+      $('#app').innerHTML = '<div class="card state">Belum ada data. Jalankan <b>📊 Center Ranking → Refresh now</b> di spreadsheet.</div>';
+      $('#period').innerHTML = '<option>—</option>';
+      return;
+    }
+    const sel = $('#period');
+    sel.innerHTML = D.periods.slice().reverse().map(p =>
+      '<option value="' + p.key + '">' + esc(p.label) + (p.running ? ' (berjalan)' : '') + '</option>').join('');
+    let saved = '';
+    try { saved = localStorage.getItem('cr.period') || ''; } catch (e) {}
+    period = D.periods.some(p => p.key === saved) ? saved : D.defaultPeriod;
+    sel.value = period;
+    sel.disabled = false;
+    sel.addEventListener('change', () => {
+      period = sel.value;
+      try { localStorage.setItem('cr.period', period); } catch (e) {}
+      render();
+    });
+    if (D.refreshedAt) {
+      const t = new Date(D.refreshedAt);
+      $('#fresh').textContent = 'Data per ' + t.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    render();
+    let rt;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(drawTrend, 120); });
+  }
+
+  const rowsFor = p => D.ranking.filter(r => r.period === p).sort((a, b) => a.rank - b.rank);
+  const detailFor = (p, c, k) => D.detail.find(d => d.period === p && d.center === c && d.cat === k);
+  const prevPeriod = p => { const i = D.periods.findIndex(x => x.key === p); return i > 0 ? D.periods[i - 1].key : null; };
+  const label = p => (D.periods.find(x => x.key === p) || {}).label || p;
+
+  // ── render ────────────────────────────────────────────────────────────────
+  function render() {
+    const rows = rowsFor(period);
+    const pInfo = D.periods.find(p => p.key === period);
+    $('#running').hidden = !(pInfo && pInfo.running);
+    const acc = rows.filter(r => r.accurate).length;
+    const avg = rows.length ? rows.reduce((s, r) => s + r.score, 0) / rows.length : null;
+    const best = rows[0], worst = rows[rows.length - 1];
+
+    $('#app').innerHTML =
+      '<section class="kpis">' +
+        kpi('Center akurat', acc + ' <span style="font-size:15px;color:var(--text-3);font-weight:500">dari ' + rows.length + '</span>', 'semua kategori PASS') +
+        kpi('Terbaik', best ? esc(best.center) : '—', best ? 'skor ' + pct(best.score, 1) : '') +
+        kpi('Terburuk', worst ? esc(worst.center) : '—', worst ? 'skor ' + pct(worst.score, 1) : '') +
+        kpi('Rata-rata skor', pct(avg, 1), 'target ' + pct(D.monthPass)) +
+      '</section>' +
+      '<section class="card">' +
+        '<div class="card-h"><h2>Ranking terbaik → terburuk · ' + esc(label(period)) + '</h2>' +
+        '<span class="hint legend-target">target ' + pct(D.monthPass) + '</span></div>' +
+        '<div id="rank">' + rows.map(rankRow).join('') + '</div>' +
+      '</section>' +
+      '<section class="card">' +
+        '<div class="card-h"><h2>Days Pass % per kategori</h2><span class="hint">✓ PASS ≥ ' + pct(D.monthPass) + ' · ✗ FAIL · — tidak ada data</span></div>' +
+        '<div class="scroll"><table class="mx"><thead><tr><th>Center</th>' +
+          D.categories.map(c => '<th>' + esc(c.name) + '</th>').join('') + '<th>Month Accuracy</th></tr></thead><tbody>' +
+          rows.map(matrixRow).join('') +
+        '</tbody></table></div>' +
+      '</section>' +
+      '<section class="card">' +
+        '<div class="card-h"><h2>Tren bulanan</h2>' +
+          '<div class="seg" role="group" aria-label="Tampilan tren">' +
+            '<button type="button" data-m="score" aria-pressed="' + (trendMode === 'score') + '">Skor</button>' +
+            '<button type="button" data-m="rank" aria-pressed="' + (trendMode === 'rank') + '">Peringkat</button>' +
+          '</div></div>' +
+        '<div class="legend" id="legend">' + D.centers.map(c =>
+          '<span data-c="' + esc(c) + '"><i style="background:' + color(c) + '"></i>' + esc(c) + '</span>').join('') + '</div>' +
+        '<div id="trend"></div>' +
+      '</section>' +
+      '<section class="card"><details class="how"><summary>Cara membaca</summary><ul>' +
+        '<li><b>Daily %</b> = record lengkap ÷ record yang diaudit di hari itu. Satu hari <b>lolos</b> kalau Daily % ≥ ' + pct(D.dailyMin) + '.</li>' +
+        '<li><b>Days Pass %</b> = hari lolos ÷ hari aktif dalam sebulan (hari tanpa record tidak dihitung). Kategori <b>PASS</b> kalau ≥ ' + pct(D.monthPass) + '.</li>' +
+        '<li><b>Skor</b> center = rata-rata Days Pass % dari kategori yang punya data. Kategori kosong tidak dihitung sebagai gagal.</li>' +
+        '<li><b>Akurat</b> = semua kategori yang punya data berstatus PASS.</li>' +
+        '<li><b>Ranking</b> = skor tertinggi dulu. Kalau seri: lebih banyak kategori PASS, lalu Month Accuracy lebih tinggi.</li>' +
+        '<li>▲/▼ = perubahan peringkat dibanding bulan sebelumnya.</li>' +
+      '</ul></details></section>';
+
+    document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+      trendMode = b.dataset.m;
+      document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      drawTrend();
+    }));
+    document.querySelectorAll('#legend span').forEach(s => {
+      s.addEventListener('mouseenter', () => highlight(s.dataset.c));
+      s.addEventListener('mouseleave', () => highlight(null));
+    });
+    bindTips();
+    drawTrend();
+  }
+
+  function kpi(k, v, n) {
+    return '<div class="kpi"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="n">' + n + '</div></div>';
+  }
+
+  function rankRow(r) {
+    const prev = prevPeriod(period);
+    const pr = prev && D.ranking.find(x => x.period === prev && x.center === r.center);
+    let delta = '<span title="tidak ada data bulan lalu">baru</span>';
+    if (pr) {
+      const d = pr.rank - r.rank;
+      delta = d > 0 ? '<span class="up">▲ ' + d + '</span>' : d < 0 ? '<span class="down">▼ ' + (-d) + '</span>' : '<span title="peringkat sama dengan bulan lalu">= tetap</span>';
+    }
+    return '<div class="rank-row" data-tip="rank" data-c="' + esc(r.center) + '">' +
+      '<div class="rk">' + r.rank + '</div>' +
+      '<div class="ct">' + esc(r.center) + '</div>' +
+      '<div class="bar" aria-hidden="true"><i style="width:' + (r.score * 100).toFixed(1) + '%"></i><b style="left:calc(' + (D.monthPass * 100) + '% - 1px)"></b></div>' +
+      '<div class="sc">' + pct(r.score, 1) + '</div>' +
+      '<div class="meta">' + (r.accurate ? '<span class="chip ok">✓ Akurat</span>' : '<span class="chip no">✗ Tidak akurat</span>') +
+      '<span class="dl">' + r.catsPass + '/' + r.catsActive + ' PASS · ' + delta + '</span></div>' +
+    '</div>';
+  }
+
+  function matrixRow(r) {
+    return '<tr><td>' + esc(r.center) + '</td>' + D.categories.map(c => {
+      const d = detailFor(period, r.center, c.key);
+      if (!d) return '<td class="none" title="Tidak ada record">—</td>';
+      return '<td class="' + (d.pass ? 'pass' : 'fail') + '" data-tip="cell" data-c="' + esc(r.center) + '" data-k="' + c.key + '">' +
+        '<span class="ic" aria-hidden="true">' + (d.pass ? '✓' : '✗') + '</span>' + pct(d.daysPassPct) +
+        '<span class="sr" style="position:absolute;left:-9999px">' + (d.pass ? 'PASS' : 'FAIL') + '</span></td>';
+    }).join('') + '<td class="acc" data-tip="acc" data-c="' + esc(r.center) + '">' + pct(r.accuracy, 1) + '</td></tr>';
+  }
+
+  // ── tooltips ──────────────────────────────────────────────────────────────
+  const tip = () => $('#tip');
+  function showTip(html, x, y) {
+    const t = tip();
+    t.innerHTML = html;
+    t.classList.add('on');
+    const w = t.offsetWidth, h = t.offsetHeight;
+    let left = x + 14, top = y + 14;
+    if (left + w > window.innerWidth - 8) left = x - w - 14;
+    if (top + h > window.innerHeight - 8) top = y - h - 14;
+    t.style.left = Math.max(8, left) + 'px';
+    t.style.top = Math.max(8, top) + 'px';
+  }
+  function hideTip() { tip().classList.remove('on'); }
+  const trow = (k, v, sw) => '<div class="r"><span>' + (sw ? '<i class="sw" style="background:' + sw + '"></i>' : '') + k + '</span><b>' + v + '</b></div>';
+
+  function tipHtml(el) {
+    const c = el.dataset.c;
+    if (el.dataset.tip === 'rank') {
+      const r = D.ranking.find(x => x.period === period && x.center === c);
+      return '<div class="t">#' + r.rank + ' ' + esc(c) + ' · ' + pct(r.score, 1) + '</div>' +
+        D.categories.map(k => {
+          const d = detailFor(period, c, k.key);
+          return trow(esc(k.name), d ? (d.pass ? '✓ ' : '✗ ') + pct(d.daysPassPct) : '—');
+        }).join('') + trow('Month Accuracy', pct(r.accuracy, 1));
+    }
+    if (el.dataset.tip === 'cell') {
+      const d = detailFor(period, c, el.dataset.k);
+      const name = D.categories.find(k => k.key === el.dataset.k).name;
+      return '<div class="t">' + esc(c) + ' · ' + esc(name) + '</div>' +
+        trow('Status', d.pass ? '✓ PASS' : '✗ FAIL') +
+        trow('Hari lolos', d.passDays + ' dari ' + d.activeDays) +
+        trow('Record lengkap', num(d.complete) + ' dari ' + num(d.records)) +
+        trow('Month Accuracy', pct(d.accuracy, 1));
+    }
+    if (el.dataset.tip === 'acc') {
+      return '<div class="t">' + esc(c) + ' · Month Accuracy</div><div class="r"><span>Rata-rata % record lengkap dari kategori yang punya data</span></div>';
+    }
+    return '';
+  }
+
+  function bindTips() {
+    document.querySelectorAll('[data-tip]').forEach(el => {
+      el.addEventListener('mousemove', e => showTip(tipHtml(el), e.clientX, e.clientY));
+      el.addEventListener('mouseleave', hideTip);
+      el.addEventListener('click', e => showTip(tipHtml(el), e.clientX, e.clientY));
+    });
+  }
+  document.addEventListener('scroll', hideTip, { passive: true });
+
+  // ── trend chart ───────────────────────────────────────────────────────────
+  function highlight(c) {
+    const box = $('#trend');
+    if (!box) return;
+    box.classList.toggle('dim', !!c);
+    box.querySelectorAll('[data-c]').forEach(n => n.classList.toggle('on', n.dataset.c === c));
+  }
+
+  function drawTrend() {
+    const box = $('#trend');
+    if (!box || !D) return;
+    const P = D.periods;
+    const W = Math.max(box.clientWidth, 280), H = 280;
+    const m = { l: 40, r: 56, t: 12, b: 28 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const x = i => m.l + (P.length === 1 ? iw / 2 : i * iw / (P.length - 1));
+    const maxRank = Math.max(1, ...P.map(p => rowsFor(p.key).length));
+    const isScore = trendMode === 'score';
+    const y = v => isScore ? m.t + ih * (1 - v) : m.t + (maxRank === 1 ? ih / 2 : ih * (v - 1) / (maxRank - 1));
+    const val = r => isScore ? r.score : r.rank;
+    const fmt = v => isScore ? pct(v, 1) : '#' + v;
+
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="Tren ' + (isScore ? 'skor' : 'peringkat') + ' bulanan per center">';
+    const si = P.findIndex(p => p.key === period);
+    if (si >= 0) {
+      const half = P.length > 1 ? iw / (P.length - 1) / 2 : iw / 2;
+      s += '<rect class="sel" x="' + (x(si) - half) + '" y="' + m.t + '" width="' + half * 2 + '" height="' + ih + '" rx="4"/>';
+    }
+    const ticks = isScore ? [0, .25, .5, .75, 1] : Array.from({ length: maxRank }, (_, i) => i + 1);
+    ticks.forEach(t => {
+      s += '<line class="grid" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>' +
+        '<text class="axis" x="' + (m.l - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + (isScore ? pct(t) : '#' + t) + '</text>';
+    });
+    if (isScore) {
+      s += '<line class="target" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(D.monthPass) + '" y2="' + y(D.monthPass) + '"/>' +
+        '<text class="tlabel" x="' + (W - m.r + 6) + '" y="' + (y(D.monthPass) + 4) + '">target</text>';
+    }
+    const every = Math.ceil(P.length / Math.max(1, Math.floor(iw / 64)));
+    P.forEach((p, i) => {
+      if (i % every === 0 || i === P.length - 1) {
+        s += '<text class="axis" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(p.label.replace(' 20', " '")) + '</text>';
+      }
+    });
+
+    const ends = [];
+    D.centers.forEach(c => {
+      const pts = P.map((p, i) => { const r = D.ranking.find(z => z.period === p.key && z.center === c); return r ? [x(i), y(val(r))] : null; });
+      let d = '', pen = false;
+      pts.forEach(pt => { if (!pt) { pen = false; return; } d += (pen ? 'L' : 'M') + pt[0].toFixed(1) + ' ' + pt[1].toFixed(1); pen = true; });
+      s += '<path class="ln" data-c="' + esc(c) + '" d="' + d + '" stroke="' + color(c) + '"/>';
+      pts.forEach(pt => { if (pt) s += '<circle class="dot" data-c="' + esc(c) + '" cx="' + pt[0] + '" cy="' + pt[1] + '" r="4" fill="' + color(c) + '"/>'; });
+      const last = pts.map((pt, i) => pt && i).filter(i => i !== false && i != null).pop();
+      if (last != null) ends.push({ c, x: pts[last][0], y: pts[last][1] });
+    });
+    // Direct end labels, pushed apart so they never overlap.
+    ends.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+    ends.forEach(e => { s += '<text class="end" data-c="' + esc(e.c) + '" x="' + (e.x + 8) + '" y="' + (e.y + 4) + '">' + esc(e.c) + '</text>'; });
+
+    s += '<line class="xh" id="xh" y1="' + m.t + '" y2="' + (m.t + ih) + '" style="display:none"/>' +
+      '<rect id="hit" x="' + m.l + '" y="' + m.t + '" width="' + iw + '" height="' + ih + '" fill="transparent"/></svg>';
+    box.innerHTML = s;
+
+    const svg = box.querySelector('svg'), hit = box.querySelector('#hit'), xh = box.querySelector('#xh');
+    const move = e => {
+      const rect = svg.getBoundingClientRect();
+      const px = (e.clientX - rect.left) * (W / rect.width);
+      const i = P.length === 1 ? 0 : Math.max(0, Math.min(P.length - 1, Math.round((px - m.l) / (iw / (P.length - 1)))));
+      xh.setAttribute('x1', x(i)); xh.setAttribute('x2', x(i)); xh.style.display = '';
+      const rows = rowsFor(P[i].key).slice().sort((a, b) => isScore ? b.score - a.score : a.rank - b.rank);
+      showTip('<div class="t">' + esc(P[i].label) + '</div>' + rows.map(r => trow(esc(r.center), fmt(val(r)), color(r.center))).join(''), e.clientX, e.clientY);
+    };
+    hit.addEventListener('mousemove', move);
+    hit.addEventListener('click', move);
+    hit.addEventListener('mouseleave', () => { xh.style.display = 'none'; hideTip(); });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
