@@ -494,6 +494,7 @@ function crWriteDashboard_(ss, ranking, periods, skipped) {
   sh.clearConditionalFormatRules();
   sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).breakApart().clearDataValidations();
   sh.setHiddenGridlines(true);
+  sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).setFontFamily('Poppins');
 
   const D = "'" + CR.DATA + "'!";
   const nCat = CR.CATEGORIES.length;
@@ -566,6 +567,7 @@ function crWriteDashboard_(ss, ranking, periods, skipped) {
     .addRange(sh.getRange(firstRow, 3, tableRows, 2))
     .setPosition(hdrRow - 1, lastCol + 2, 0, 0)
     .setOption('title', 'Score by center (selected month)')
+    .setOption('fontName', 'Poppins')
     .setOption('legend', { position: 'none' })
     .setOption('hAxis', { format: 'percent', viewWindow: { min: 0, max: 1 } })
     .setOption('colors', ['#1f3a5f'])
