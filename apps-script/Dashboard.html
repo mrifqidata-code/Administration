@@ -22,7 +22,6 @@
     --track: #e8eef7;
     --good: #0ca30c;  --good-ink: #006300;  --good-bg: #e2f3e2;
     --bad: #d03b3b;   --bad-ink: #a32323;   --bad-bg: #fbe4e4;
-    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
     --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 8px rgba(0,0,0,.04);
   }
   @media (prefers-color-scheme: dark) {
@@ -33,7 +32,6 @@
       --accent: #3987e5; --track: #1f2a38;
       --good-ink: #5fd35f; --good-bg: #173417;
       --bad-ink: #f08a8a;  --bad-bg: #3d1d1d;
-      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
       --shadow: none;
     }
   }
@@ -44,7 +42,6 @@
     --accent: #3987e5; --track: #1f2a38;
     --good-ink: #5fd35f; --good-bg: #173417;
     --bad-ink: #f08a8a;  --bad-bg: #3d1d1d;
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --shadow: none;
   }
 
@@ -118,25 +115,43 @@
   .mx td.acc { color: var(--text); background: var(--surface-2); }
   .mx td .ic { font-size: 11px; margin-right: 3px; }
 
-  /* Trend */
-  .seg { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 2px; }
-  .seg button { font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--text-2); padding: 5px 12px; border-radius: 6px; cursor: pointer; }
-  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 8px; font-size: 12px; color: var(--text-2); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
-  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-  #trend svg { display: block; width: 100%; overflow: visible; font-family: inherit; }
-  #trend .grid { stroke: var(--line); stroke-width: 1; }
-  #trend .axis { fill: var(--text-3); font-size: 11px; }
-  #trend .target { stroke: var(--text-2); stroke-width: 1; opacity: .6; }
-  #trend .tlabel { fill: var(--text-2); font-size: 11px; }
-  #trend .sel { fill: var(--surface-2); }
-  #trend .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; transition: opacity .12s; }
-  #trend .dot { stroke: var(--surface); stroke-width: 2; }
-  #trend .end { font-size: 11px; font-weight: 600; fill: var(--text-2); }
-  #trend .xh { stroke: var(--text-3); stroke-width: 1; }
-  #trend.dim .ln, #trend.dim .dot, #trend.dim .end { opacity: .15; }
-  #trend.dim .on { opacity: 1 !important; }
+  /* Center detail */
+  .rank-row, .mx tbody tr { cursor: pointer; }
+  .rank-row.sel { background: var(--surface-2); border-radius: 8px; box-shadow: inset 3px 0 0 var(--accent); }
+  .mx tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { font: inherit; font-size: 13px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--text-2);
+    padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+  .pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .dsum { color: var(--text-2); font-size: 13px; margin: -4px 0 8px; }
+  .dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .dcard { border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  .dcard.nodata { color: var(--text-3); background: var(--surface-2); border-style: dashed; }
+  .dhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .dhead h3 { font-size: 14px; font-weight: 600; margin: 0; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .stat .k { font-size: 11px; color: var(--text-3); }
+  .sub-h { font-size: 12px; font-weight: 600; color: var(--text-2); margin: 10px 0 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .sub-h span { font-weight: 400; color: var(--text-3); }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal .wd { font-size: 10px; color: var(--text-3); text-align: center; }
+  .cal .d { font-size: 11px; text-align: center; border-radius: 4px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+  .cal .d.pass { background: var(--good-bg); color: var(--good-ink); font-weight: 600; }
+  .cal .d.fail { background: var(--bad-bg); color: var(--bad-ink); font-weight: 600; }
+  .cal .d.none { background: var(--surface-2); color: var(--text-3); }
+  .mf { display: grid; grid-template-columns: minmax(0, 1fr) 70px 64px; gap: 4px 8px; align-items: center; font-size: 12px; }
+  .mf .f { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mf .b { height: 8px; background: var(--track); border-radius: 4px; position: relative; }
+  .mf .b i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--accent); }
+  .mf .n { text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .muted { color: var(--text-3); font-size: 12px; }
+  .calkey { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--text-3); margin: -4px 0 12px; }
+  .calkey span { display: inline-flex; align-items: center; gap: 6px; }
+  .calkey i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .calkey i.pass { background: var(--good-bg); box-shadow: inset 0 0 0 1px var(--good-ink); }
+  .calkey i.fail { background: var(--bad-bg); box-shadow: inset 0 0 0 1px var(--bad-ink); }
+  .calkey i.none { background: var(--surface-2); }
 
   details.how { color: var(--text-2); font-size: 13px; }
   details.how summary { cursor: pointer; color: var(--text); font-weight: 600; }
@@ -194,12 +209,12 @@
   'use strict';
   let D = null;          // payload
   let period = '';
-  let trendMode = 'score';
+  let center = '';        // center shown in the detail panel
+  const periodDetail = {}; // period → { available, daily, missing } (loaded on demand)
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pct = (v, d) => (v == null || isNaN(v)) ? '—' : (v * 100).toFixed(d || 0) + '%';
   const num = v => Number(v).toLocaleString('id-ID');
-  const color = center => 'var(--s' + ((D.centers.indexOf(center) % 8) + 1) + ')';
 
   // ── data ──────────────────────────────────────────────────────────────────
   function load() {
@@ -234,9 +249,8 @@
       const t = new Date(D.refreshedAt);
       $('#fresh').textContent = 'Data per ' + t.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     }
+    try { center = localStorage.getItem('cr.center') || ''; } catch (e) {}
     render();
-    let rt;
-    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(drawTrend, 120); });
   }
 
   const rowsFor = p => D.ranking.filter(r => r.period === p).sort((a, b) => a.rank - b.rank);
@@ -272,16 +286,7 @@
           rows.map(matrixRow).join('') +
         '</tbody></table></div>' +
       '</section>' +
-      '<section class="card">' +
-        '<div class="card-h"><h2>Tren bulanan</h2>' +
-          '<div class="seg" role="group" aria-label="Tampilan tren">' +
-            '<button type="button" data-m="score" aria-pressed="' + (trendMode === 'score') + '">Skor</button>' +
-            '<button type="button" data-m="rank" aria-pressed="' + (trendMode === 'rank') + '">Peringkat</button>' +
-          '</div></div>' +
-        '<div class="legend" id="legend">' + D.centers.map(c =>
-          '<span data-c="' + esc(c) + '"><i style="background:' + color(c) + '"></i>' + esc(c) + '</span>').join('') + '</div>' +
-        '<div id="trend"></div>' +
-      '</section>' +
+      '<section class="card" id="detail"></section>' +
       '<section class="card"><details class="how"><summary>Cara membaca</summary><ul>' +
         '<li><b>Daily %</b> = record lengkap ÷ record yang diaudit di hari itu. Satu hari <b>lolos</b> kalau Daily % ≥ ' + pct(D.dailyMin) + '.</li>' +
         '<li><b>Days Pass %</b> = hari lolos ÷ hari aktif dalam sebulan (hari tanpa record tidak dihitung). Kategori <b>PASS</b> kalau ≥ ' + pct(D.monthPass) + '.</li>' +
@@ -289,19 +294,24 @@
         '<li><b>Akurat</b> = semua kategori yang punya data berstatus PASS.</li>' +
         '<li><b>Ranking</b> = skor tertinggi dulu. Kalau seri: lebih banyak kategori PASS, lalu Month Accuracy lebih tinggi.</li>' +
         '<li>▲/▼ = perubahan peringkat dibanding bulan sebelumnya.</li>' +
+        '<li><b>Detail center</b>: klik center di ranking atau tabel. Kalender menandai hari lolos (✓, Daily % ≥ ' + pct(D.dailyMin) + ') dan gagal (✗). ' +
+          '<b>Field kosong teratas</b> = kolom yang paling sering kosong di record yang tidak lengkap. Satu record bisa kosong di beberapa kolom.</li>' +
       '</ul></details></section>';
 
-    document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
-      trendMode = b.dataset.m;
-      document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-      drawTrend();
-    }));
-    document.querySelectorAll('#legend span').forEach(s => {
-      s.addEventListener('mouseenter', () => highlight(s.dataset.c));
-      s.addEventListener('mouseleave', () => highlight(null));
+    if (!rows.some(r => r.center === center)) center = rows.length ? rows[0].center : '';
+    document.querySelectorAll('.rank-row, .mx tbody tr').forEach(el => {
+      el.addEventListener('click', () => selectCenter(el.dataset.c, true));
     });
     bindTips();
-    drawTrend();
+    renderDetail();
+  }
+
+  function selectCenter(c, scroll) {
+    if (!c) return;
+    center = c;
+    try { localStorage.setItem('cr.center', c); } catch (e) {}
+    renderDetail();
+    if (scroll) $('#detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function kpi(k, v, n) {
@@ -327,7 +337,7 @@
   }
 
   function matrixRow(r) {
-    return '<tr><td>' + esc(r.center) + '</td>' + D.categories.map(c => {
+    return '<tr data-c="' + esc(r.center) + '"><td>' + esc(r.center) + '</td>' + D.categories.map(c => {
       const d = detailFor(period, r.center, c.key);
       if (!d) return '<td class="none" title="Tidak ada record">—</td>';
       return '<td class="' + (d.pass ? 'pass' : 'fail') + '" data-tip="cell" data-c="' + esc(r.center) + '" data-k="' + c.key + '">' +
@@ -371,14 +381,23 @@
         trow('Record lengkap', num(d.complete) + ' dari ' + num(d.records)) +
         trow('Month Accuracy', pct(d.accuracy, 1));
     }
+    if (el.dataset.tip === 'day') {
+      const [y, m] = [Number(period.slice(0, 4)), Number(period.slice(4))];
+      const date = new Date(y, m - 1, Number(el.dataset.d)).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+      const records = Number(el.dataset.n), complete = Number(el.dataset.ok);
+      return '<div class="t">' + esc(date) + '</div>' +
+        trow('Record lengkap', num(complete) + ' dari ' + num(records)) +
+        trow('Daily %', pct(complete / records)) +
+        trow('Status', complete / records >= D.dailyMin - 1e-9 ? '✓ lolos' : '✗ gagal');
+    }
     if (el.dataset.tip === 'acc') {
       return '<div class="t">' + esc(c) + ' · Month Accuracy</div><div class="r"><span>Rata-rata % record lengkap dari kategori yang punya data</span></div>';
     }
     return '';
   }
 
-  function bindTips() {
-    document.querySelectorAll('[data-tip]').forEach(el => {
+  function bindTips(root) {
+    (root || document).querySelectorAll('[data-tip]').forEach(el => {
       el.addEventListener('mousemove', e => showTip(tipHtml(el), e.clientX, e.clientY));
       el.addEventListener('mouseleave', hideTip);
       el.addEventListener('click', e => showTip(tipHtml(el), e.clientX, e.clientY));
@@ -386,81 +405,96 @@
   }
   document.addEventListener('scroll', hideTip, { passive: true });
 
-  // ── trend chart ───────────────────────────────────────────────────────────
-  function highlight(c) {
-    const box = $('#trend');
+  // ── center detail ─────────────────────────────────────────────────────────
+  function renderDetail() {
+    const box = $('#detail');
     if (!box) return;
-    box.classList.toggle('dim', !!c);
-    box.querySelectorAll('[data-c]').forEach(n => n.classList.toggle('on', n.dataset.c === c));
+    const rows = rowsFor(period);
+    if (!center) { box.innerHTML = '<div class="state">Tidak ada center di bulan ini.</div>'; return; }
+    document.querySelectorAll('.rank-row, .mx tbody tr').forEach(el => el.classList.toggle('sel', el.dataset.c === center));
+    const r = rows.find(x => x.center === center);
+
+    let html = '<div class="card-h"><h2>Detail ' + esc(center) + ' · ' + esc(label(period)) + '</h2>' +
+      '<div class="pills" role="group" aria-label="Pilih center">' + rows.map(x =>
+        '<button type="button" class="pill" data-c="' + esc(x.center) + '" aria-pressed="' + (x.center === center) + '">' + esc(x.center) + '</button>').join('') +
+      '</div></div>' +
+      '<div class="dsum">Peringkat #' + r.rank + ' · skor ' + pct(r.score, 1) + ' · ' + r.catsPass + '/' + r.catsActive + ' kategori PASS · ' +
+        (r.accurate ? '✓ Akurat' : '✗ Tidak akurat') + '</div>' +
+      '<div class="calkey"><span><i class="pass"></i>hari lolos (Daily % ≥ ' + pct(D.dailyMin) + ')</span><span><i class="fail"></i>hari gagal</span>' +
+        '<span><i class="none"></i>tidak ada record</span><span>arahkan kursor / ketuk tanggal untuk detail</span></div>';
+
+    const pd = periodDetail[period];
+    html += '<div class="dgrid">' + D.categories.map(c => catCard(c, pd)).join('') + '</div>';
+    box.innerHTML = html;
+    box.querySelectorAll('.pill').forEach(b => b.addEventListener('click', () => selectCenter(b.dataset.c, false)));
+    bindTips(box);
+
+    if (!pd) loadPeriodDetail(period);
   }
 
-  function drawTrend() {
-    const box = $('#trend');
-    if (!box || !D) return;
-    const P = D.periods;
-    const W = Math.max(box.clientWidth, 280), H = 280;
-    const m = { l: 40, r: 56, t: 12, b: 28 };
-    const iw = W - m.l - m.r, ih = H - m.t - m.b;
-    const x = i => m.l + (P.length === 1 ? iw / 2 : i * iw / (P.length - 1));
-    const maxRank = Math.max(1, ...P.map(p => rowsFor(p.key).length));
-    const isScore = trendMode === 'score';
-    const y = v => isScore ? m.t + ih * (1 - v) : m.t + (maxRank === 1 ? ih / 2 : ih * (v - 1) / (maxRank - 1));
-    const val = r => isScore ? r.score : r.rank;
-    const fmt = v => isScore ? pct(v, 1) : '#' + v;
+  function loadPeriodDetail(p) {
+    if (periodDetail[p] === 'loading') return;
+    periodDetail[p] = 'loading';
+    google.script.run
+      .withSuccessHandler(json => { periodDetail[p] = JSON.parse(json); if (p === period) renderDetail(); })
+      .withFailureHandler(() => { periodDetail[p] = { available: false, failed: true }; if (p === period) renderDetail(); })
+      .crGetPeriodDetail(p);
+  }
 
-    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="Tren ' + (isScore ? 'skor' : 'peringkat') + ' bulanan per center">';
-    const si = P.findIndex(p => p.key === period);
-    if (si >= 0) {
-      const half = P.length > 1 ? iw / (P.length - 1) / 2 : iw / 2;
-      s += '<rect class="sel" x="' + (x(si) - half) + '" y="' + m.t + '" width="' + half * 2 + '" height="' + ih + '" rx="4"/>';
+  function catCard(c, pd) {
+    const d = detailFor(period, center, c.key);
+    if (!d) {
+      return '<div class="dcard nodata"><div class="dhead"><h3>' + esc(c.name) + '</h3></div>Tidak ada record bulan ini.</div>';
     }
-    const ticks = isScore ? [0, .25, .5, .75, 1] : Array.from({ length: maxRank }, (_, i) => i + 1);
-    ticks.forEach(t => {
-      s += '<line class="grid" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>' +
-        '<text class="axis" x="' + (m.l - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + (isScore ? pct(t) : '#' + t) + '</text>';
-    });
-    if (isScore) {
-      s += '<line class="target" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y(D.monthPass) + '" y2="' + y(D.monthPass) + '"/>' +
-        '<text class="tlabel" x="' + (W - m.r + 6) + '" y="' + (y(D.monthPass) + 4) + '">target</text>';
+    const incomplete = d.records - d.complete;
+    let html = '<div class="dcard"><div class="dhead"><h3>' + esc(c.name) + '</h3>' +
+      (d.pass ? '<span class="chip ok">✓ PASS</span>' : '<span class="chip no">✗ FAIL</span>') + '</div>' +
+      '<div class="stats">' +
+        '<div class="stat"><div class="v">' + pct(d.daysPassPct) + '</div><div class="k">' + d.passDays + ' dari ' + d.activeDays + ' hari lolos</div></div>' +
+        '<div class="stat"><div class="v">' + pct(d.accuracy, 1) + '</div><div class="k">' + num(d.complete) + ' dari ' + num(d.records) + ' record lengkap</div></div>' +
+        '<div class="stat"><div class="v">' + num(incomplete) + '</div><div class="k">record tidak lengkap</div></div>' +
+      '</div>';
+
+    if (!pd || pd === 'loading') {
+      return html + '<div class="skel"></div><div class="skel" style="width:70%"></div></div>';
     }
-    const every = Math.ceil(P.length / Math.max(1, Math.floor(iw / 64)));
-    P.forEach((p, i) => {
-      if (i % every === 0 || i === P.length - 1) {
-        s += '<text class="axis" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(p.label.replace(' 20', " '")) + '</text>';
-      }
-    });
+    if (!pd.available) {
+      return html + '<div class="muted">' + (pd.failed ? 'Gagal memuat kalender dan field kosong.' :
+        'Kalender dan field kosong muncul setelah <b>📊 Center Ranking → Refresh now</b> dijalankan dengan versi script terbaru.') + '</div></div>';
+    }
 
-    const ends = [];
-    D.centers.forEach(c => {
-      const pts = P.map((p, i) => { const r = D.ranking.find(z => z.period === p.key && z.center === c); return r ? [x(i), y(val(r))] : null; });
-      let d = '', pen = false;
-      pts.forEach(pt => { if (!pt) { pen = false; return; } d += (pen ? 'L' : 'M') + pt[0].toFixed(1) + ' ' + pt[1].toFixed(1); pen = true; });
-      s += '<path class="ln" data-c="' + esc(c) + '" d="' + d + '" stroke="' + color(c) + '"/>';
-      pts.forEach(pt => { if (pt) s += '<circle class="dot" data-c="' + esc(c) + '" cx="' + pt[0] + '" cy="' + pt[1] + '" r="4" fill="' + color(c) + '"/>'; });
-      const last = pts.map((pt, i) => pt && i).filter(i => i !== false && i != null).pop();
-      if (last != null) ends.push({ c, x: pts[last][0], y: pts[last][1] });
-    });
-    // Direct end labels, pushed apart so they never overlap.
-    ends.sort((a, b) => a.y - b.y);
-    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
-    ends.forEach(e => { s += '<text class="end" data-c="' + esc(e.c) + '" x="' + (e.x + 8) + '" y="' + (e.y + 4) + '">' + esc(e.c) + '</text>'; });
+    // Calendar (Monday first)
+    const y = Number(period.slice(0, 4)), m = Number(period.slice(4));
+    const days = new Date(y, m, 0).getDate();
+    const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+    const byDay = {};
+    pd.daily.forEach(x => { if (x[0] === center && x[1] === c.key) byDay[x[2]] = x; });
+    let cal = ['S', 'S', 'R', 'K', 'J', 'S', 'M'].map(w => '<div class="wd" aria-hidden="true">' + w + '</div>').join('');
+    for (let i = 0; i < lead; i++) cal += '<div></div>';
+    for (let day = 1; day <= days; day++) {
+      const x = byDay[day];
+      if (!x) { cal += '<div class="d none" title="Tidak ada record">' + day + '</div>'; continue; }
+      const ok = x[4] / x[3] >= D.dailyMin - 1e-9;
+      cal += '<div class="d ' + (ok ? 'pass' : 'fail') + '" data-tip="day" data-d="' + day + '" data-n="' + x[3] + '" data-ok="' + x[4] + '" ' +
+        'aria-label="' + day + ': ' + (ok ? 'lolos' : 'gagal') + '">' + day + '</div>';
+    }
+    html += '<div class="sub-h">Kalender harian</div><div class="cal">' + cal + '</div>';
 
-    s += '<line class="xh" id="xh" y1="' + m.t + '" y2="' + (m.t + ih) + '" style="display:none"/>' +
-      '<rect id="hit" x="' + m.l + '" y="' + m.t + '" width="' + iw + '" height="' + ih + '" fill="transparent"/></svg>';
-    box.innerHTML = s;
-
-    const svg = box.querySelector('svg'), hit = box.querySelector('#hit'), xh = box.querySelector('#xh');
-    const move = e => {
-      const rect = svg.getBoundingClientRect();
-      const px = (e.clientX - rect.left) * (W / rect.width);
-      const i = P.length === 1 ? 0 : Math.max(0, Math.min(P.length - 1, Math.round((px - m.l) / (iw / (P.length - 1)))));
-      xh.setAttribute('x1', x(i)); xh.setAttribute('x2', x(i)); xh.style.display = '';
-      const rows = rowsFor(P[i].key).slice().sort((a, b) => isScore ? b.score - a.score : a.rank - b.rank);
-      showTip('<div class="t">' + esc(P[i].label) + '</div>' + rows.map(r => trow(esc(r.center), fmt(val(r)), color(r.center))).join(''), e.clientX, e.clientY);
-    };
-    hit.addEventListener('mousemove', move);
-    hit.addEventListener('click', move);
-    hit.addEventListener('mouseleave', () => { xh.style.display = 'none'; hideTip(); });
+    // Top missing fields
+    const mf = pd.missing.filter(x => x[0] === center && x[1] === c.key).sort((a, b) => b[4] - a[4]);
+    html += '<div class="sub-h">Field kosong teratas<span>dari ' + num(incomplete) + ' record tidak lengkap</span></div>';
+    if (!incomplete) {
+      html += '<div class="muted">Semua record lengkap.</div>';
+    } else if (!mf.length) {
+      html += '<div class="muted">Kolom Missing Field(s) tidak terbaca untuk kategori ini.</div>';
+    } else {
+      html += '<div class="mf">' + mf.slice(0, 5).map(x =>
+        '<div class="f" title="' + esc(x[2]) + ' (kolom ' + esc(x[3]) + ')">' + esc(x[2]) + '</div>' +
+        '<div class="b" aria-hidden="true"><i style="width:' + Math.min(100, x[4] / incomplete * 100).toFixed(1) + '%"></i></div>' +
+        '<div class="n">' + num(x[4]) + ' record</div>').join('') + '</div>' +
+        (mf.length > 5 ? '<div class="muted" style="margin-top:6px">+' + (mf.length - 5) + ' field lain</div>' : '');
+    }
+    return html + '</div>';
   }
 
   load();

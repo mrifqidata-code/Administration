@@ -151,3 +151,45 @@ test('reads the detail tab back into detail records', () => {
     records: 60, complete: 60, accuracy: 1, pass: true });
   assert.equal(ctx.crReadDetailTab_({ getSheetByName: () => null }), null);
 });
+
+test('finds the current missing-field column, not the old one', () => {
+  const h = ['Center', 'Missing Fields', 'Unique Key', 'Audit Result (New Rules)', 'Missing Field(s) (New Rules)', 'Period Key'];
+  assert.equal(ctx.crFindColumn_(h, ['missing field'], true), 4);
+  assert.equal(ctx.crFindColumn_(['Center', 'Audit Flag', 'Missing Fields'], ['missing field'], true), 2);
+});
+
+test('turns missing-field codes into header names', () => {
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.crSplitMissing_('BK; AV; '))), ['BK', 'AV']);
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.crSplitMissing_('❌ BELUM LENGKAP'))), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.crSplitMissing_(''))), []);
+  const headers = ['Center', 'Date', 'Time', '* Reasons\nNot DP'];
+  assert.equal(ctx.crFieldLabel_('D', headers), 'Reasons Not DP');
+  assert.equal(ctx.crFieldLabel_('B', headers), 'Date');
+  assert.equal(ctx.crFieldLabel_('Z', headers), 'Z');          // beyond the header row
+  assert.equal(ctx.crFieldLabel_('Birth Date', headers), 'Birth Date');
+});
+
+test('daily rows and missing fields per center / category / month', () => {
+  const headers = { SD: ['Center', 'Regist Day', 'Source Lead', 'Bag Taken Date'] };
+  const rowsByCat = {
+    SD: [
+      ['KLM', V, 202608, 1, ''],
+      ['KLM', X, 202608, 1, 'C; D; '],
+      ['KLM', X, 202608, 2, 'D; '],
+      ['KLM', V, 202608, 2, 'D; '],        // complete rows never count as missing
+      ['HIB', X, 202608, 2, 'C; '],
+    ],
+  };
+  const agg = ctx.crAggregate_(rowsByCat, 0.8, 0.9, headers);
+  const daily = JSON.parse(JSON.stringify(agg.daily)).map(d => [d.center, d.day, d.records, d.complete, d.pass]);
+  assert.deepEqual(daily, [['HIB', 2, 1, 0, false], ['KLM', 1, 2, 1, false], ['KLM', 2, 2, 1, false]]);
+  const missing = JSON.parse(JSON.stringify(agg.missing)).map(m => [m.center, m.field, m.code, m.records]);
+  assert.deepEqual(missing, [['HIB', 'Source Lead', 'C', 1], ['KLM', 'Bag Taken Date', 'D', 2], ['KLM', 'Source Lead', 'C', 1]]);
+});
+
+test('period detail payload maps tab rows to compact arrays', () => {
+  const daily = [[202608, 'Aug 2026', 'KLM', 'Student Database', 3, 10, 7, 0.7, 'FAIL'], [202608, 'Aug 2026', 'KLM', 'Unknown', 3, 1, 1, 1, 'PASS']];
+  const missing = [[202608, 'Aug 2026', 'KLM', 'Student Database', 'Bag Taken Date', 'BK', 12]];
+  const p = JSON.parse(JSON.stringify(ctx.crPeriodDetailPayload_(daily, missing)));
+  assert.deepEqual(p, { available: true, daily: [['KLM', 'SD', 3, 10, 7]], missing: [['KLM', 'SD', 'Bag Taken Date', 'BK', 12]] });
+});

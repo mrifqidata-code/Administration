@@ -13,7 +13,10 @@ Isinya:
 - Kartu ringkasan: jumlah center yang akurat, center terbaik, center terburuk, dan rata-rata skor.
 - **Ranking terbaik → terburuk**: bar skor dengan garis target 90%, status ✓ Akurat / ✗ Tidak akurat, jumlah kategori PASS, dan ▲/▼ perubahan peringkat dibanding bulan lalu. Arahkan kursor ke baris untuk melihat rincian per kategori.
 - **Days Pass % per kategori**: matriks center × 5 kategori (✓ PASS / ✗ FAIL) dan Month Accuracy. Arahkan kursor ke sel untuk melihat hari lolos dan jumlah record.
-- **Tren bulanan**: grafik garis skor atau peringkat setiap center dari bulan ke bulan.
+- **Detail center**: klik center di ranking atau tabel (atau pilih lewat tombol center). Muncul 5 kartu kategori, masing-masing berisi:
+  - Days Pass %, jumlah hari lolos, record lengkap vs tidak lengkap, dan Month Accuracy.
+  - **Kalender harian**: hijau = hari lolos, merah = hari gagal, abu-abu = tidak ada record. Arahkan kursor atau ketuk tanggal untuk melihat Daily %.
+  - **Field kosong teratas**: kolom yang paling sering kosong di record yang tidak lengkap (kode kolom seperti `BK` otomatis diterjemahkan ke nama header).
 - Tampilan menyesuaikan HP dan mode gelap.
 
 ## Yang dibuat script
@@ -21,6 +24,8 @@ Isinya:
 | Tab | Isi |
 | --- | --- |
 | **Center Category Detail** | Selalu ditulis saat refresh (tiap jam). Satu baris per center × kategori × bulan: hari aktif, hari lolos, jumlah record, verdict PASS/FAIL. Web app membaca data dari tab ini. |
+| **Center Daily Detail** | Selalu ditulis saat refresh. Satu baris per center × kategori × hari: jumlah record, record lengkap, Daily %, lolos/gagal. Sumber data kalender harian. |
+| **Center Missing Fields** | Selalu ditulis saat refresh. Jumlah record tidak lengkap per center × kategori × bulan × kolom yang kosong (diambil dari kolom `Missing Field(s)` di tiap sheet). |
 | **Center Ranking** *(opsional)* | Dibuat lewat menu **📊 Center Ranking → Build / update the Center Ranking tab**. Pilih bulan di sel kuning (C4). Isinya KPI (jumlah center yang akurat, center terbaik/terburuk, rata-rata skor), tabel ranking terbaik → terburuk, grafik skor, tren skor & tren ranking semua bulan. |
 | **Center Ranking Data** *(opsional)* | Dibuat bersama tab di atas. Satu baris per center per bulan: rank, skor, status, Days Pass % per kategori, Month Accuracy. |
 

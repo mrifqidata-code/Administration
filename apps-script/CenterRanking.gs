@@ -32,20 +32,24 @@ const CR = {
   DASH: 'Center Ranking',
   DATA: 'Center Ranking Data',
   DETAIL: 'Center Category Detail',
+  DAILY: 'Center Daily Detail',
+  MISSING: 'Center Missing Fields',
 
   // Columns are found by header name in row 1. For each field the candidates are tried in order;
-  // within a candidate the right-most matching column wins (SCHEDULE MANAGEMENT has two "Day" columns).
+  // within a candidate the right-most matching column wins (SCHEDULE MANAGEMENT has two "Day" columns,
+  // PAYMENT RECORD has an old "Missing Fields" column left of the current "Missing Field(s) (...)").
+  // "missing" is optional: its codes are column letters (e.g. "BK; AV;") and are shown by header name.
   CATEGORIES: [
     { key: 'RT', name: 'Register Trial', sheet: 'REGISTER TRIAL',
-      result: ['audit result'], period: ['period key'], day: ['day'] },
+      result: ['audit result'], period: ['period key'], day: ['day'], missing: ['missing field'] },
     { key: 'PR', name: 'Payment Record', sheet: 'PAYMENT RECORD',
-      result: ['audit result'], period: ['period key'], day: ['day', 'payment day'] },
+      result: ['audit result'], period: ['period key'], day: ['day', 'payment day'], missing: ['missing field'] },
     { key: 'SD', name: 'Student Database', sheet: 'STUDENT DATABASE',
-      result: ['audit result'], period: ['period key'], day: ['day', 'regist day'] },
+      result: ['audit result'], period: ['period key'], day: ['day', 'regist day'], missing: ['missing field'] },
     { key: 'SM', name: 'Schedule Mgmt', sheet: 'SCHEDULE MANAGEMENT',
-      result: ['audit result'], period: ['period key'], day: ['day'] },
+      result: ['audit result'], period: ['period key'], day: ['day'], missing: ['missing field'] },
     { key: 'AL', name: 'Attendance Log', sheet: 'Attendance Log',
-      result: ['audit result', 'audit flag'], period: ['period key'], day: ['day'] },
+      result: ['audit result', 'audit flag'], period: ['period key'], day: ['day'], missing: ['missing field'] },
   ],
 
   ACCURATE: '✅ ACCURATE',
@@ -103,17 +107,19 @@ function refreshCenterRanking() {
   try {
     const t = crTimer_();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const rowsByCat = crReadAllCategories_(ss);
-    t('read raw sheets (' + CR.CATEGORIES.map(c => c.key + ' ' + rowsByCat[c.key].length).join(', ') + ' rows)');
+    const raw = crReadAllCategories_(ss);
+    t('read raw sheets (' + CR.CATEGORIES.map(c => c.key + ' ' + raw.rowsByCat[c.key].length).join(', ') + ' rows)');
 
-    const agg = crAggregate_(rowsByCat, CR.DAILY_MIN, CR.MONTH_PASS);
+    const agg = crAggregate_(raw.rowsByCat, CR.DAILY_MIN, CR.MONTH_PASS, raw.headersByCat);
     t('calculate (' + agg.detail.length + ' center × category × month rows)');
 
     crWriteDetail_(ss, agg.detail);
+    crWriteDaily_(ss, agg.daily);
+    crWriteMissing_(ss, agg.missing);
     const props = PropertiesService.getScriptProperties();
     props.setProperty('CR_SKIPPED', JSON.stringify(agg.skipped));
     props.setProperty('CR_REFRESHED_AT', new Date().toISOString());
-    t('write "' + CR.DETAIL + '"');
+    t('write "' + CR.DETAIL + '", "' + CR.DAILY + '", "' + CR.MISSING + '"');
 
     if (CR.BUILD_SHEET_TAB_ON_REFRESH) crBuildSheetTabs_(ss, agg.detail, agg.skipped, t);
     t('done', true);
@@ -170,12 +176,48 @@ function doGet() {
 
 /** Called from Dashboard.html. Returns the dashboard payload as a JSON string. */
 function crGetDashboardData() {
-  let ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('CR_SPREADSHEET_ID'));
+  const ss = crOpenSpreadsheet_();
   let detail = crReadDetailTab_(ss);
-  if (!detail) detail = crAggregate_(crReadAllCategories_(ss), CR.DAILY_MIN, CR.MONTH_PASS).detail;
+  if (!detail) detail = crAggregate_(crReadAllCategories_(ss).rowsByCat, CR.DAILY_MIN, CR.MONTH_PASS).detail;
   const refreshedAt = PropertiesService.getScriptProperties().getProperty('CR_REFRESHED_AT') || '';
   return JSON.stringify(crDashboardPayload_(detail, refreshedAt, new Date()));
+}
+
+function crOpenSpreadsheet_() {
+  return SpreadsheetApp.getActiveSpreadsheet() ||
+    SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('CR_SPREADSHEET_ID'));
+}
+
+/**
+ * Called from Dashboard.html when a month is opened in the center detail panel.
+ * Returns JSON { available, daily: [[center, cat, day, records, complete]], missing: [[center, cat, field, code, records]] }.
+ */
+function crGetPeriodDetail(period) {
+  const ss = crOpenSpreadsheet_();
+  const daily = crReadTabForPeriod_(ss, CR.DAILY, period, 9);
+  const missing = crReadTabForPeriod_(ss, CR.MISSING, period, 7);
+  if (!daily) return JSON.stringify({ available: false });
+  return JSON.stringify(crPeriodDetailPayload_(daily, missing || []));
+}
+
+/** Rows of a detail tab whose Period Key (column A) equals `period`; null when the tab is missing. */
+function crReadTabForPeriod_(ss, name, period, width) {
+  const sh = ss.getSheetByName(name);
+  if (!sh) return null;
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, width).getValues().filter(r => crNormPeriod_(r[0]) === String(period));
+}
+
+function crPeriodDetailPayload_(dailyRows, missingRows) {
+  const keyByName = {};
+  CR.CATEGORIES.forEach(c => { keyByName[c.name] = c.key; });
+  return {
+    available: true,
+    // Daily tab: Period Key, Month, Center, Category, Day, Records, Complete, Daily %, Verdict
+    daily: dailyRows.filter(r => keyByName[r[3]]).map(r => [String(r[2]), keyByName[r[3]], Number(r[4]), Number(r[5]), Number(r[6])]),
+    // Missing tab: Period Key, Month, Center, Category, Missing Field, Column, Records
+    missing: missingRows.filter(r => keyByName[r[3]]).map(r => [String(r[2]), keyByName[r[3]], String(r[4]), String(r[5]), Number(r[6])]),
+  };
 }
 
 /** Reads the "Center Category Detail" tab written by refreshCenterRanking(); null when it is missing. */
@@ -228,24 +270,31 @@ function crDashboardPayload_(detail, refreshedAt, now) {
  * "Google Sheets API" advanced service is enabled (much faster), otherwise SpreadsheetApp.
  */
 function crReadAllCategories_(ss) {
-  const rowsByCat = {};
-  if (typeof Sheets === 'undefined') {
-    console.log('Tip: enable Services → Google Sheets API for a faster read.');
-    CR.CATEGORIES.forEach(cat => { rowsByCat[cat.key] = crReadCategory_(ss, cat); });
-    return rowsByCat;
-  }
+  const rowsByCat = {}, headersByCat = {};
   const plans = CR.CATEGORIES.map(cat => {
     const sh = ss.getSheetByName(cat.sheet);
     if (!sh) throw new Error('Sheet not found: "' + cat.sheet + '"');
-    const lastRow = sh.getLastRow();
-    return { cat, n: Math.max(0, lastRow - 1), col: crColumnsFor_(cat, sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0]) };
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
+    headersByCat[cat.key] = headers;
+    return { cat, sh, n: Math.max(0, sh.getLastRow() - 1), col: crColumnsFor_(cat, headers) };
   });
-  const fields = ['center', 'result', 'period', 'day'];
+
+  if (typeof Sheets === 'undefined') {
+    console.log('Tip: enable Services → Google Sheets API for a faster read.');
+    plans.forEach(p => {
+      const read = c => (c < 0 || !p.n ? null : p.sh.getRange(2, c + 1, p.n, 1).getValues());
+      const cols = CR_FIELDS.map(f => read(p.col[f]));
+      rowsByCat[p.cat.key] = crZipColumns_(cols.map(c => (c ? c.map(r => r[0]) : [])), p.n);
+    });
+    return { rowsByCat, headersByCat };
+  }
+
   const ranges = [];
   plans.forEach(p => {
     if (!p.n) return;
     const q = "'" + p.cat.sheet.replace(/'/g, "''") + "'!";
-    fields.forEach(f => {
+    CR_FIELDS.forEach(f => {
+      if (p.col[f] < 0) return;
       const L = crColLetter_(p.col[f] + 1);
       ranges.push(q + L + '2:' + L + (p.n + 1));
     });
@@ -255,44 +304,35 @@ function crReadAllCategories_(ss) {
   let k = 0;
   plans.forEach(p => {
     if (!p.n) { rowsByCat[p.cat.key] = []; return; }
-    const cols = fields.map(() => ((res[k++] || {}).values || [[]])[0] || []);
-    const rows = new Array(p.n);
-    for (let i = 0; i < p.n; i++) rows[i] = cols.map(c => (c[i] === undefined ? '' : c[i]));
-    rowsByCat[p.cat.key] = rows;
+    const cols = CR_FIELDS.map(f => (p.col[f] < 0 ? [] : ((res[k++] || {}).values || [[]])[0] || []));
+    rowsByCat[p.cat.key] = crZipColumns_(cols, p.n);
   });
-  return rowsByCat;
+  return { rowsByCat, headersByCat };
 }
 
-/** Column indexes (0-based) of center / result / period / day for one category sheet's header row. */
+/** The fields read from every category sheet, in row order. */
+const CR_FIELDS = ['center', 'result', 'period', 'day', 'missing'];
+
+/** Turns parallel column arrays into n rows; absent cells become ''. */
+function crZipColumns_(cols, n) {
+  const rows = new Array(n);
+  for (let i = 0; i < n; i++) rows[i] = cols.map(c => (c[i] === undefined ? '' : c[i]));
+  return rows;
+}
+
+/** Column indexes (0-based) of center / result / period / day / missing (-1 = absent) in a header row. */
 function crColumnsFor_(cat, headers) {
   const col = {
     center: crFindColumn_(headers, ['center'], false),
     result: crFindColumn_(headers, cat.result, true),
     period: crFindColumn_(headers, cat.period, true),
     day: crFindColumn_(headers, cat.day, true),
+    missing: crFindColumn_(headers, cat.missing || [], true),
   };
-  Object.keys(col).forEach(k => {
+  ['center', 'result', 'period', 'day'].forEach(k => {
     if (col[k] < 0) throw new Error('"' + cat.sheet + '": cannot find the ' + k + ' column in row 1.');
   });
   return col;
-}
-
-/** Reads [center, result, period, day] for every data row of one category sheet. */
-function crReadCategory_(ss, cat) {
-  const sh = ss.getSheetByName(cat.sheet);
-  if (!sh) throw new Error('Sheet not found: "' + cat.sheet + '"');
-  const lastRow = sh.getLastRow();
-  const lastCol = sh.getLastColumn();
-  if (lastRow < 2) return [];
-
-  const col = crColumnsFor_(cat, sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0]);
-
-  const n = lastRow - 1;
-  const read = c => sh.getRange(2, c + 1, n, 1).getValues();
-  const center = read(col.center), result = read(col.result), period = read(col.period), day = read(col.day);
-  const rows = new Array(n);
-  for (let i = 0; i < n; i++) rows[i] = [center[i][0], result[i][0], period[i][0], day[i][0]];
-  return rows;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -303,13 +343,14 @@ function crNormHeader_(h) {
   return String(h == null ? '' : h).toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-/** Index of the column whose header matches a candidate: exact match, or prefix for "audit ..." headers. */
+/** Index of the column whose header matches a candidate: exact match, or prefix for "audit ..." / "missing ..." headers. */
 function crFindColumn_(headers, candidates, rightMost) {
   const norm = headers.map(crNormHeader_);
   for (const cand of candidates) {
     const hit = [];
+    const prefix = cand.startsWith('audit') || cand.startsWith('missing');
     norm.forEach((h, i) => {
-      if (h === cand || (cand.startsWith('audit') && h.startsWith(cand))) hit.push(i);
+      if (h === cand || (prefix && h.startsWith(cand))) hit.push(i);
     });
     if (hit.length) return rightMost ? hit[hit.length - 1] : hit[0];
   }
@@ -349,15 +390,22 @@ function crPeriodLabel_(p) {
 }
 
 /**
- * rowsByCat: { RT: [[center, result, period, day], ...], ... }
- * Returns { detail: [...], skipped: { RT: n, ... } } where skipped counts auditable rows
- * that could not be placed because the center, period key or day was missing.
+ * rowsByCat:    { RT: [[center, result, period, day, missing], ...], ... }
+ * headersByCat: { RT: [row-1 headers], ... } (optional) — turns missing-field column letters into names.
+ * Returns {
+ *   detail:  one entry per period × center × category,
+ *   daily:   one entry per period × center × category × day,
+ *   missing: one entry per period × center × category × missing field (incomplete records only),
+ *   skipped: { RT: n, ... } auditable rows without a center, period key or day,
+ * }
  */
-function crAggregate_(rowsByCat, dailyMin, monthPass) {
+function crAggregate_(rowsByCat, dailyMin, monthPass, headersByCat) {
   const buckets = {};
   const skipped = {};
+  const missingCount = {};
   CR.CATEGORIES.forEach(cat => {
     skipped[cat.key] = 0;
+    const headers = (headersByCat || {})[cat.key] || [];
     (rowsByCat[cat.key] || []).forEach(r => {
       const res = crClassify_(r[1]);
       if (res === null) return;
@@ -370,8 +418,33 @@ function crAggregate_(rowsByCat, dailyMin, monthPass) {
       const d = b.days[day] || (b.days[day] = { total: 0, complete: 0 });
       d.total++;
       d.complete += res;
+      if (res === 0) {
+        crSplitMissing_(r[4]).forEach(code => {
+          const mk = k + '|' + code;
+          const m = missingCount[mk] || (missingCount[mk] = {
+            period, center, cat: cat.key, code, field: crFieldLabel_(code, headers), records: 0 });
+          m.records++;
+        });
+      }
     });
   });
+
+  const daily = [];
+  Object.keys(buckets).forEach(k => {
+    const b = buckets[k];
+    Object.keys(b.days).forEach(day => {
+      const d = b.days[day];
+      const pct = d.complete / d.total;
+      daily.push({ period: b.period, center: b.center, cat: b.cat, day: Number(day),
+        records: d.total, complete: d.complete, pct, pass: pct >= dailyMin - 1e-9 });
+    });
+  });
+  daily.sort((a, b) => a.period.localeCompare(b.period) || a.center.localeCompare(b.center) ||
+    crCatIndex_(a.cat) - crCatIndex_(b.cat) || a.day - b.day);
+
+  const missing = Object.keys(missingCount).map(k => missingCount[k]);
+  missing.sort((a, b) => a.period.localeCompare(b.period) || a.center.localeCompare(b.center) ||
+    crCatIndex_(a.cat) - crCatIndex_(b.cat) || b.records - a.records || a.field.localeCompare(b.field));
 
   const detail = Object.keys(buckets).map(k => {
     const b = buckets[k];
@@ -393,7 +466,21 @@ function crAggregate_(rowsByCat, dailyMin, monthPass) {
   });
   detail.sort((a, b) => a.period.localeCompare(b.period) || a.center.localeCompare(b.center) ||
     crCatIndex_(a.cat) - crCatIndex_(b.cat));
-  return { detail, skipped };
+  return { detail, daily, missing, skipped };
+}
+
+/** "BK; AV; " → ["BK", "AV"]. Status text such as "❌ BELUM LENGKAP" is ignored. */
+function crSplitMissing_(v) {
+  return String(v == null ? '' : v).split(/[;,\n]/).map(x => x.trim()).filter(x => x && !/[❌✅]/.test(x));
+}
+
+/** Column letter → its row-1 header ("AV" → "Source Lead"); anything else is returned as is. */
+function crFieldLabel_(code, headers) {
+  if (!/^[A-Z]{1,3}$/.test(code)) return code;
+  let n = 0;
+  for (const ch of code) n = n * 26 + ch.charCodeAt(0) - 64;
+  const h = String(headers[n - 1] == null ? '' : headers[n - 1]).replace(/\s+/g, ' ').replace(/^[*#\s]+/, '').trim();
+  return h || code;
 }
 
 function crCatIndex_(key) {
@@ -458,6 +545,35 @@ function crWriteDetail_(ss, detail) {
     sh.getRange(2, 1, rows.length, header.length).setValues(rows);
     sh.getRange(2, 7, rows.length, 1).setNumberFormat('0.0%');
     sh.getRange(2, 10, rows.length, 1).setNumberFormat('0.0%');
+  }
+  sh.setFrozenRows(1);
+}
+
+function crWriteDaily_(ss, daily) {
+  const name = key => CR.CATEGORIES[crCatIndex_(key)].name;
+  crWriteTable_(ss, CR.DAILY,
+    ['Period Key', 'Month', 'Center', 'Category', 'Day', 'Records', 'Complete', 'Daily %', 'Verdict'],
+    daily.map(d => [d.period, crPeriodLabel_(d.period), d.center, name(d.cat), d.day, d.records, d.complete, d.pct,
+      d.pass ? 'PASS' : 'FAIL']),
+    { 8: '0.0%' });
+}
+
+function crWriteMissing_(ss, missing) {
+  const name = key => CR.CATEGORIES[crCatIndex_(key)].name;
+  crWriteTable_(ss, CR.MISSING,
+    ['Period Key', 'Month', 'Center', 'Category', 'Missing Field', 'Column', 'Records'],
+    missing.map(m => [m.period, crPeriodLabel_(m.period), m.center, name(m.cat), m.field, m.code, m.records]),
+    { 6: '@' });
+}
+
+/** Replaces a tab's contents with a header row and data rows in as few calls as possible. */
+function crWriteTable_(ss, tab, header, rows, formats) {
+  const sh = crSheet_(ss, tab);
+  sh.clear();
+  sh.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight('bold').setBackground('#1f3a5f').setFontColor('#ffffff');
+  if (rows.length) {
+    Object.keys(formats || {}).forEach(c => sh.getRange(2, Number(c), rows.length, 1).setNumberFormat(formats[c]));
+    sh.getRange(2, 1, rows.length, header.length).setValues(rows);
   }
   sh.setFrozenRows(1);
 }
