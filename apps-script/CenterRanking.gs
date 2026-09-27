@@ -25,6 +25,10 @@ const CR = {
   DAILY_MIN: 0.80,
   MONTH_PASS: 0.90,
 
+  // The web app is the main dashboard. The in-sheet "Center Ranking" tab is slow to draw on a
+  // spreadsheet this size, so the hourly refresh skips it; build it from the menu when needed.
+  BUILD_SHEET_TAB_ON_REFRESH: false,
+
   DASH: 'Center Ranking',
   DATA: 'Center Ranking Data',
   DETAIL: 'Center Category Detail',
@@ -83,6 +87,7 @@ function crAddMenu_() {
   SpreadsheetApp.getUi()
     .createMenu('📊 Center Ranking')
     .addItem('Refresh now', 'refreshCenterRanking')
+    .addItem('Build / update the Center Ranking tab', 'buildCenterRankingSheet')
     .addItem('Install / repair auto-refresh', 'installCenterRanking')
     .addToUi();
 }
@@ -91,19 +96,66 @@ function crAddMenu_() {
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Reads the raw sheets, recalculates everything and writes the "Center Category Detail" tab. */
 function refreshCenterRanking() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) { console.log('Another refresh is already running — skipped.'); return; }
+  try {
+    const t = crTimer_();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const rowsByCat = crReadAllCategories_(ss);
+    t('read raw sheets (' + CR.CATEGORIES.map(c => c.key + ' ' + rowsByCat[c.key].length).join(', ') + ' rows)');
+
+    const agg = crAggregate_(rowsByCat, CR.DAILY_MIN, CR.MONTH_PASS);
+    t('calculate (' + agg.detail.length + ' center × category × month rows)');
+
+    crWriteDetail_(ss, agg.detail);
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty('CR_SKIPPED', JSON.stringify(agg.skipped));
+    props.setProperty('CR_REFRESHED_AT', new Date().toISOString());
+    t('write "' + CR.DETAIL + '"');
+
+    if (CR.BUILD_SHEET_TAB_ON_REFRESH) crBuildSheetTabs_(ss, agg.detail, agg.skipped, t);
+    t('done', true);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Builds the in-sheet "Center Ranking" and "Center Ranking Data" tabs from the detail tab (no raw re-read). */
+function buildCenterRankingSheet() {
+  const t = crTimer_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const rowsByCat = {};
-  CR.CATEGORIES.forEach(cat => { rowsByCat[cat.key] = crReadCategory_(ss, cat); });
+  let detail = crReadDetailTab_(ss);
+  let skipped = JSON.parse(PropertiesService.getScriptProperties().getProperty('CR_SKIPPED') || '{}');
+  if (!detail) {
+    refreshCenterRanking();
+    detail = crReadDetailTab_(ss) || [];
+    skipped = JSON.parse(PropertiesService.getScriptProperties().getProperty('CR_SKIPPED') || '{}');
+  }
+  t('read "' + CR.DETAIL + '"');
+  crBuildSheetTabs_(ss, detail, skipped, t);
+  t('done', true);
+}
 
-  const agg = crAggregate_(rowsByCat, CR.DAILY_MIN, CR.MONTH_PASS);
-  const ranking = crRank_(agg.detail);
+function crBuildSheetTabs_(ss, detail, skipped, t) {
+  const ranking = crRank_(detail);
   const periods = [...new Set(ranking.map(r => r.period))].sort();
-
-  crWriteDetail_(ss, agg.detail);
   crWriteData_(ss, ranking);
-  crWriteDashboard_(ss, ranking, periods, agg.skipped);
-  PropertiesService.getScriptProperties().setProperty('CR_REFRESHED_AT', new Date().toISOString());
+  t('write "' + CR.DATA + '"');
+  crWriteDashboard_(ss, ranking, periods, skipped);
+  t('write "' + CR.DASH + '"');
+}
+
+/** Logs the seconds spent on each step to the Apps Script execution log. */
+function crTimer_() {
+  const start = Date.now();
+  let last = start;
+  return (step, total) => {
+    const now = Date.now();
+    console.log((total ? 'TOTAL ' + ((now - start) / 1000).toFixed(1) : ((now - last) / 1000).toFixed(1)) + 's  ' + step);
+    last = now;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,11 +173,7 @@ function crGetDashboardData() {
   let ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('CR_SPREADSHEET_ID'));
   let detail = crReadDetailTab_(ss);
-  if (!detail) {
-    const rowsByCat = {};
-    CR.CATEGORIES.forEach(cat => { rowsByCat[cat.key] = crReadCategory_(ss, cat); });
-    detail = crAggregate_(rowsByCat, CR.DAILY_MIN, CR.MONTH_PASS).detail;
-  }
+  if (!detail) detail = crAggregate_(crReadAllCategories_(ss), CR.DAILY_MIN, CR.MONTH_PASS).detail;
   const refreshedAt = PropertiesService.getScriptProperties().getProperty('CR_REFRESHED_AT') || '';
   return JSON.stringify(crDashboardPayload_(detail, refreshedAt, new Date()));
 }
@@ -175,15 +223,48 @@ function crDashboardPayload_(detail, refreshedAt, now) {
   };
 }
 
-/** Reads [center, result, period, day] for every data row of one category sheet. */
-function crReadCategory_(ss, cat) {
-  const sh = ss.getSheetByName(cat.sheet);
-  if (!sh) throw new Error('Sheet not found: "' + cat.sheet + '"');
-  const lastRow = sh.getLastRow();
-  const lastCol = sh.getLastColumn();
-  if (lastRow < 2) return [];
+/**
+ * Reads every category. Uses one Sheets API batchGet call for all 20 columns when the
+ * "Google Sheets API" advanced service is enabled (much faster), otherwise SpreadsheetApp.
+ */
+function crReadAllCategories_(ss) {
+  const rowsByCat = {};
+  if (typeof Sheets === 'undefined') {
+    console.log('Tip: enable Services → Google Sheets API for a faster read.');
+    CR.CATEGORIES.forEach(cat => { rowsByCat[cat.key] = crReadCategory_(ss, cat); });
+    return rowsByCat;
+  }
+  const plans = CR.CATEGORIES.map(cat => {
+    const sh = ss.getSheetByName(cat.sheet);
+    if (!sh) throw new Error('Sheet not found: "' + cat.sheet + '"');
+    const lastRow = sh.getLastRow();
+    return { cat, n: Math.max(0, lastRow - 1), col: crColumnsFor_(cat, sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0]) };
+  });
+  const fields = ['center', 'result', 'period', 'day'];
+  const ranges = [];
+  plans.forEach(p => {
+    if (!p.n) return;
+    const q = "'" + p.cat.sheet.replace(/'/g, "''") + "'!";
+    fields.forEach(f => {
+      const L = crColLetter_(p.col[f] + 1);
+      ranges.push(q + L + '2:' + L + (p.n + 1));
+    });
+  });
+  const res = ranges.length ? Sheets.Spreadsheets.Values.batchGet(ss.getId(),
+    { ranges, majorDimension: 'COLUMNS', valueRenderOption: 'UNFORMATTED_VALUE' }).valueRanges : [];
+  let k = 0;
+  plans.forEach(p => {
+    if (!p.n) { rowsByCat[p.cat.key] = []; return; }
+    const cols = fields.map(() => ((res[k++] || {}).values || [[]])[0] || []);
+    const rows = new Array(p.n);
+    for (let i = 0; i < p.n; i++) rows[i] = cols.map(c => (c[i] === undefined ? '' : c[i]));
+    rowsByCat[p.cat.key] = rows;
+  });
+  return rowsByCat;
+}
 
-  const headers = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+/** Column indexes (0-based) of center / result / period / day for one category sheet's header row. */
+function crColumnsFor_(cat, headers) {
   const col = {
     center: crFindColumn_(headers, ['center'], false),
     result: crFindColumn_(headers, cat.result, true),
@@ -193,6 +274,18 @@ function crReadCategory_(ss, cat) {
   Object.keys(col).forEach(k => {
     if (col[k] < 0) throw new Error('"' + cat.sheet + '": cannot find the ' + k + ' column in row 1.');
   });
+  return col;
+}
+
+/** Reads [center, result, period, day] for every data row of one category sheet. */
+function crReadCategory_(ss, cat) {
+  const sh = ss.getSheetByName(cat.sheet);
+  if (!sh) throw new Error('Sheet not found: "' + cat.sheet + '"');
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2) return [];
+
+  const col = crColumnsFor_(cat, sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0]);
 
   const n = lastRow - 1;
   const read = c => sh.getRange(2, c + 1, n, 1).getValues();
@@ -508,7 +601,7 @@ function crWriteDashboard_(ss, ranking, periods, skipped) {
 
   // Notes
   row += 1;
-  const skippedText = CR.CATEGORIES.map(c => c.name + ' ' + skipped[c.key]).join('  |  ');
+  const skippedText = CR.CATEGORIES.map(c => c.name + ' ' + (skipped[c.key] || 0)).join('  |  ');
   const notes = [
     'HOW TO READ THIS',
     '● Score = average Days Pass % across the categories that had records for that center in that month. Blank category = no records, not a failure.',
@@ -516,7 +609,7 @@ function crWriteDashboard_(ss, ranking, periods, skipped) {
     '● ACCURATE = every category with records passed (Days Pass % ≥ ' + Math.round(CR.MONTH_PASS * 100) + '%). Ties are broken by categories PASS, then Month Accuracy.',
     '● The current month is still running, so its numbers move until the month closes.',
     '● Rows skipped (audited but missing center / period key / day): ' + skippedText,
-    '● Refresh: menu 📊 Center Ranking → Refresh now (also runs every hour). Per-category numbers: tab "' + CR.DETAIL + '".',
+    '● Numbers refresh every hour; this tab is redrawn by 📊 Center Ranking → Build / update the Center Ranking tab. Per-category numbers: tab "' + CR.DETAIL + '".',
   ];
   sh.getRange(row, 2, notes.length, 1).setValues(notes.map(n => [n])).setFontColor('#444444');
   sh.getRange(row, 2).setFontWeight('bold').setFontColor('#1f3a5f');

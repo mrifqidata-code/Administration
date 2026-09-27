@@ -20,9 +20,11 @@ Isinya:
 
 | Tab | Isi |
 | --- | --- |
-| **Center Ranking** | Dashboard: pilih bulan di sel kuning (C4). Isinya KPI (jumlah center yang akurat, center terbaik/terburuk, rata-rata skor), tabel ranking terbaik → terburuk, grafik skor, tren skor & tren ranking semua bulan. |
-| **Center Ranking Data** | Satu baris per center per bulan: rank, skor, status, Days Pass % per kategori, Month Accuracy. |
-| **Center Category Detail** | Satu baris per center × kategori × bulan: hari aktif, hari lolos, jumlah record, verdict PASS/FAIL (untuk audit trail). |
+| **Center Category Detail** | Selalu ditulis saat refresh (tiap jam). Satu baris per center × kategori × bulan: hari aktif, hari lolos, jumlah record, verdict PASS/FAIL. Web app membaca data dari tab ini. |
+| **Center Ranking** *(opsional)* | Dibuat lewat menu **📊 Center Ranking → Build / update the Center Ranking tab**. Pilih bulan di sel kuning (C4). Isinya KPI (jumlah center yang akurat, center terbaik/terburuk, rata-rata skor), tabel ranking terbaik → terburuk, grafik skor, tren skor & tren ranking semua bulan. |
+| **Center Ranking Data** *(opsional)* | Dibuat bersama tab di atas. Satu baris per center per bulan: rank, skor, status, Days Pass % per kategori, Month Accuracy. |
+
+Tab dashboard di spreadsheet tidak ikut digambar ulang setiap jam, karena menggambarnya lambat untuk spreadsheet sebesar ini. Kalau kamu ingin tab itu ikut diperbarui otomatis, ubah `BUILD_SHEET_TAB_ON_REFRESH` menjadi `true`.
 
 ## Cara hitung
 
@@ -53,10 +55,25 @@ Script mencari kolom berdasarkan **nama header di baris 1** (`Center`, `Audit Re
 1. Buka spreadsheet **Audit System New 1** → menu **Extensions → Apps Script**.
 2. Klik **+** di samping *Files* → **Script**, beri nama `CenterRanking`. Hapus isi default-nya, tempel seluruh isi `apps-script/CenterRanking.gs`, lalu klik **Save**.
 3. Klik **+** → **HTML**, beri nama **`Dashboard`** (harus persis, tanpa `.html`). Hapus isi default-nya, tempel seluruh isi `apps-script/Dashboard.html`, lalu klik **Save**.
-4. Di dropdown fungsi (toolbar atas), pilih **`installCenterRanking`** lalu klik **Run**. Setujui izin yang diminta.
-5. Kembali ke spreadsheet. Tab **Center Ranking** sudah muncul, dan ada menu baru **📊 Center Ranking**.
+4. **Aktifkan Google Sheets API** supaya pembacaan data jauh lebih cepat: di panel kiri, klik **+** di samping *Services* → pilih **Google Sheets API** → **Add**. Identifier-nya harus tetap `Sheets`.
+5. Di dropdown fungsi (toolbar atas), pilih **`installCenterRanking`** lalu klik **Run**. Setujui izin yang diminta.
+6. Kembali ke spreadsheet. Tab **Center Category Detail** sudah terisi, dan ada menu baru **📊 Center Ranking**.
 
 Setelah itu data di-refresh otomatis **setiap jam**. Kalau mau update sekarang juga: **📊 Center Ranking → Refresh now**.
+
+### Kalau refresh terasa lama
+
+Buka **Executions** di editor Apps Script, lalu klik salah satu run. Log-nya mencatat waktu setiap langkah, contohnya:
+
+```
+12.4s  read raw sheets (RT 29973, PR 13786, SD 23185, SM 11987, AL 41130 rows)
+0.8s  calculate (360 center × category × month rows)
+1.1s  write "Center Category Detail"
+TOTAL 14.3s  done
+```
+
+- Kalau muncul `Tip: enable Services → Google Sheets API`, berarti langkah 4 belum dilakukan.
+- Kalau langkah `read raw sheets` yang lama, biasanya spreadsheet sedang menghitung ulang formulanya. Script harus menunggu perhitungan itu selesai.
 
 ### Membuat link web app
 
